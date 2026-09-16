@@ -1,0 +1,15 @@
+C:\Users\vadim\OOP-davydiuk\lab2v5\bin\Debug\net10.0\lab2v5.exe
+C:\Users\vadim\OOP-davydiuk\lab2v5\bin\Debug\net10.0\lab2v5.deps.json
+C:\Users\vadim\OOP-davydiuk\lab2v5\bin\Debug\net10.0\lab2v5.runtimeconfig.json
+C:\Users\vadim\OOP-davydiuk\lab2v5\bin\Debug\net10.0\lab2v5.dll
+C:\Users\vadim\OOP-davydiuk\lab2v5\bin\Debug\net10.0\lab2v5.pdb
+C:\Users\vadim\OOP-davydiuk\lab2v5\obj\Debug\net10.0\lab2v5.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\vadim\OOP-davydiuk\lab2v5\obj\Debug\net10.0\lab2v5.AssemblyInfoInputs.cache
+C:\Users\vadim\OOP-davydiuk\lab2v5\obj\Debug\net10.0\lab2v5.AssemblyInfo.cs
+C:\Users\vadim\OOP-davydiuk\lab2v5\obj\Debug\net10.0\lab2v5.csproj.CoreCompileInputs.cache
+C:\Users\vadim\OOP-davydiuk\lab2v5\obj\Debug\net10.0\lab2v5.sourcelink.json
+C:\Users\vadim\OOP-davydiuk\lab2v5\obj\Debug\net10.0\lab2v5.dll
+C:\Users\vadim\OOP-davydiuk\lab2v5\obj\Debug\net10.0\refint\lab2v5.dll
+C:\Users\vadim\OOP-davydiuk\lab2v5\obj\Debug\net10.0\lab2v5.pdb
+C:\Users\vadim\OOP-davydiuk\lab2v5\obj\Debug\net10.0\lab2v5.genruntimeconfig.cache
+C:\Users\vadim\OOP-davydiuk\lab2v5\obj\Debug\net10.0\ref\lab2v5.dll
