@@ -18,4 +18,4 @@
 4. **Оператор using:** Автоматично гарантує виклик `Dispose()`, навіть при виникненні помилок (`try-finally`).
 5. **GC.SuppressFinalize(this):** Відключає викликання деструктора для об'єкта, оскільки ресурси вже звільнені вручну.
 6. **Dispose(true) vs Dispose(false):** `Dispose(true)` звільняє керовані й некеровані ресурси (викликається вручну/`using`). `Dispose(false)` викликається деструктором і очищає лише некеровані ресурси.
-<img width="383" height="345" alt="image" src="https://github.com/user-attachments/assets/173b2ad3-ec28-4956-9389-470f0afa55c7" />
+![alt text](image.png)
