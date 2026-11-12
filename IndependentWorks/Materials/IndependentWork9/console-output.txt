@@ -1,0 +1,9 @@
+Самостійна №9: Dictionary і HashSet
+Кеш: FileMetadata { FileName = report.txt, Size = 2048, LastModified = 01.01.2026 00:00:00, Hash = demo-hash }; Contains = True
+Видалено: True; Contains = False
+Усі теги: C#, LINQ, OOP
+Спільні: C#
+Лише у першій: LINQ
+Після видалення OOP: C#, LINQ
+Пошук C#: 1, 2
+Пошук C# AND LINQ: 1
