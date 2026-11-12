@@ -1,0 +1,4 @@
+Тестовый запуск для C:\Users\vadim\OOP-Davydiuk\Самостійні\8\IndependentWork7.Tests\bin\Release\net10.0\IndependentWork7.Tests.dll (.NETCoreApp,Version=v10.0)
+Общее количество тестовых файлов (1), соответствующих указанному шаблону.
+
+Пройден!   : не пройдено     0, пройдено    10, пропущено     0, всего    10, длительность 58 ms. - IndependentWork7.Tests.dll (net10.0)
