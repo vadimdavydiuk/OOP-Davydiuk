@@ -1,125 +1,84 @@
+using System;
+using System.Collections.Generic;
 using System.Text;
 
-namespace lab18v5;
-
-public class OrderNotFoundException : Exception
+namespace lab18v5
 {
-    public int OrderId { get; }
-    public OrderNotFoundException() : base("Замовлення не знайдено.") { }
-    public OrderNotFoundException(string message) : base(message) { }
-    public OrderNotFoundException(string message, Exception innerException)
-        : base(message, innerException) { }
-    public OrderNotFoundException(int orderId) : base($"Замовлення №{orderId} не знайдено.")
+    internal class Program
     {
-        OrderId = orderId;
-    }
-}
-
-public class Result<T>
-{
-    public bool IsSuccess { get; }
-    public T Value { get; }
-    public string Error { get; }
-
-    private Result(T value, bool isSuccess, string error)
-    {
-        Value = value;
-        IsSuccess = isSuccess;
-        Error = error;
-    }
-    public static Result<T> Success(T value) => new(value, true, string.Empty);
-    // У випадку невдачі Value не використовується: спочатку перевіряємо IsSuccess.
-    public static Result<T> Failure(string error) => new(default!, false, error);
-    public static Result<T> Failure(Exception ex)
-    {
-        ArgumentNullException.ThrowIfNull(ex);
-        return Failure(ex.Message);
-    }
-}
-
-public record OrderItem(int ProductId, int Quantity);
-public record Order(int Id, string Customer, IReadOnlyList<OrderItem> Items);
-
-public class OrderService
-{
-    private readonly Dictionary<int, int> stock = new() { [1] = 5, [2] = 0, [3] = 10 };
-    private readonly Dictionary<int, Order> orders = new();
-
-    public Order GetOrder(int orderId)
-    {
-        if (!orders.TryGetValue(orderId, out var order))
-            throw new OrderNotFoundException(orderId);
-        return order;
-    }
-
-    public Result<bool> PlaceOrder(Order order)
-    {
-        if (order is null || order.Id <= 0 || string.IsNullOrWhiteSpace(order.Customer)
-            || order.Items is null || order.Items.Count == 0)
-            return Result<bool>.Failure("Некоректні дані або порожнє замовлення.");
-        if (orders.ContainsKey(order.Id))
-            return Result<bool>.Failure($"Замовлення №{order.Id} вже існує.");
-        if (order.Items.Any(item => item is null || item.ProductId <= 0 || item.Quantity <= 0))
-            return Result<bool>.Failure("Кількість та ідентифікатор товару мають бути додатними.");
-
-        // Об'єднуємо повторені товари, щоб не перевищити залишок кількома рядками.
-        var quantities = order.Items.GroupBy(item => item.ProductId)
-            .ToDictionary(group => group.Key, group => group.Sum(item => (long)item.Quantity));
-        foreach (var (productId, quantity) in quantities)
+        static void Main(string[] args)
         {
-            if (!stock.TryGetValue(productId, out int available) || available < quantity)
-                return Result<bool>.Failure($"Товар №{productId}: потрібно {quantity}, у наявності {available}.");
-        }
+            Console.OutputEncoding = Encoding.UTF8;
+            var orderService = new OrderService();
 
-        // Змінюємо залишки лише після перевірки всіх товарів. Зберігаємо копію списку.
-        var savedOrder = order with { Items = Array.AsReadOnly(order.Items.ToArray()) };
-        foreach (var (productId, quantity) in quantities)
-            stock[productId] -= (int)quantity;
-        orders.Add(order.Id, savedOrder);
-        return Result<bool>.Success(true);
-    }
-}
+            Console.WriteLine("=== 1. Демонстрація GetOrder (Використання власного винятку) ===\n");
 
-internal class Program
-{
-    static void ShowResult(Result<bool> result)
-    {
-        if (result.IsSuccess)
-            Console.WriteLine($"Замовлення оформлено. Value = {result.Value}");
-        else
-            Console.WriteLine($"Замовлення не оформлено: {result.Error}");
-    }
+            // Успішний пошук замовлення
+            try
+            {
+                var existingOrder = orderService.GetOrder(101);
+                Console.WriteLine($"[Успіх] Знайдено замовлення #{existingOrder.Id} для клієнта: {existingOrder.CustomerName}");
+            }
+            catch (OrderNotFoundException ex)
+            {
+                Console.WriteLine($"[Помилка] {ex.Message} (ID: {ex.OrderId})");
+            }
 
-    static void Main()
-    {
-        Console.OutputEncoding = Encoding.UTF8;
-        Console.WriteLine("=== Лабораторна №18. Варіант 5: Управління замовленнями ===");
-        var service = new OrderService();
-        Console.WriteLine("\n1. Успішне оформлення (Result).");
-        ShowResult(service.PlaceOrder(new Order(1, "Давидюк", new[] { new OrderItem(1, 2) })));
+            // Спроба отримати неіснуюче замовлення
+            try
+            {
+                var missingOrder = orderService.GetOrder(999);
+                Console.WriteLine($"[Успіх] Знайдено замовлення #{missingOrder.Id}");
+            }
+            catch (OrderNotFoundException ex)
+            {
+                Console.WriteLine($"[Перехоплено виняток] {ex.Message} | Проблемний OrderId: {ex.OrderId}");
+            }
 
-        Console.WriteLine("\n2. Товар відсутній (Result).");
-        ShowResult(service.PlaceOrder(new Order(2, "Давидюк", new[] { new OrderItem(2, 1) })));
+            Console.WriteLine("\n=== 2. Демонстрація PlaceOrder (Використання патерну Result<T>) ===\n");
 
-        Console.WriteLine("\n3. Недостатня сумарна кількість повтореного товару (Result).");
-        ShowResult(service.PlaceOrder(new Order(3, "Давидюк",
-            new[] { new OrderItem(1, 2), new OrderItem(1, 2) })));
+            // Сценарій А: Товар є в наявності -> Result.Success
+            var validOrder = new Order
+            {
+                Id = 102,
+                CustomerName = "Олена Ковальчук",
+                Items = new List<Product>
+                {
+                    new Product { Id = 1, Name = "Ноутбук", Quantity = 2 },
+                    new Product { Id = 3, Name = "Клавіатура", Quantity = 1 }
+                }
+            };
 
-        Console.WriteLine("\n4. Повторний номер замовлення (Result).");
-        ShowResult(service.PlaceOrder(new Order(1, "Давидюк", new[] { new OrderItem(3, 1) })));
+            Result<bool> placeResult1 = orderService.PlaceOrder(validOrder);
+            if (placeResult1.IsSuccess)
+            {
+                Console.WriteLine($"[Успіх] Замовлення #{validOrder.Id} успішно оформлено! Результат: {placeResult1.Value}");
+            }
+            else
+            {
+                Console.WriteLine($"[Відмова] Не вдалося оформити замовлення: {placeResult1.Error}");
+            }
 
-        Console.WriteLine("\n5. Пошук наявного та відсутнього замовлень (try-catch).");
-        try
-        {
-            var order = service.GetOrder(1);
-            Console.WriteLine($"Знайдено замовлення №{order.Id}, покупець: {order.Customer}.");
-            service.GetOrder(999);
-        }
-        catch (OrderNotFoundException ex)
-        {
-            Console.WriteLine($"Власний виняток: {ex.Message} OrderId = {ex.OrderId}");
-            var result = Result<bool>.Failure(ex);
-            Console.WriteLine($"Failure(Exception): IsSuccess = {result.IsSuccess}, Error = {result.Error}");
+            // Сценарій Б: Товару немає в наявності -> Result.Failure
+            var outOfStockOrder = new Order
+            {
+                Id = 103,
+                CustomerName = "Максим Сидоренко",
+                Items = new List<Product>
+                {
+                    new Product { Id = 2, Name = "Мишка", Quantity = 1 } // На складі 0 шт.
+                }
+            };
+
+            Result<bool> placeResult2 = orderService.PlaceOrder(outOfStockOrder);
+            if (placeResult2.IsSuccess)
+            {
+                Console.WriteLine($"[Успіх] Замовлення #{outOfStockOrder.Id} успішно оформлено!");
+            }
+            else
+            {
+                Console.WriteLine($"[Відмова] Не вдалося оформити замовлення #{outOfStockOrder.Id}: {placeResult2.Error}");
+            }
         }
     }
 }
