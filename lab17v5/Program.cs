@@ -1,137 +1,69 @@
+using System;
+using System.IO;
+using System.Net.Http;
 using System.Text;
-using System.Text.Json;
 
-namespace lab17v5;
-
-public static class RetryHelper
+namespace lab17v5
 {
-    // retryCount — кількість повторів після першого виклику.
-    public static T ExecuteWithRetry<T>(Func<T> operation, int retryCount = 3,
-        TimeSpan initialDelay = default, Func<Exception, bool>? shouldRetry = null)
+    internal class Program
     {
-        ArgumentNullException.ThrowIfNull(operation);
-        if (retryCount < 0) throw new ArgumentOutOfRangeException(nameof(retryCount));
-        if (initialDelay < TimeSpan.Zero || initialDelay.TotalMilliseconds > int.MaxValue)
-            throw new ArgumentOutOfRangeException(nameof(initialDelay));
-
-        double delayMs = initialDelay.TotalMilliseconds;
-        for (int attempt = 0; ; attempt++)
+        static void Main(string[] args)
         {
-            Console.WriteLine($"Спроба {attempt + 1} (дозволено повторів: {retryCount})");
-            try
-            {
-                T result = operation();
-                Console.WriteLine("Операція успішна.");
-                return result;
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Помилка {ex.GetType().Name}: {ex.Message}");
-                if (attempt >= retryCount || !(shouldRetry?.Invoke(ex)
-                    ?? (ex is IOException or HttpRequestException)))
-                {
-                    Console.WriteLine("Повторення припинено.");
-                    throw;
-                }
-                Console.WriteLine($"Затримка перед повтором: {delayMs:0} мс.");
-                Thread.Sleep(TimeSpan.FromMilliseconds(delayMs));
-                delayMs = Math.Min(delayMs * 2, int.MaxValue);
-            }
-        }
-    }
-}
+            Console.OutputEncoding = Encoding.UTF8;
 
-public class FileProcessor
-{
-    private int attempts;
-    public string? UpdatedConfigJson { get; private set; }
+            var fileProcessor = new FileProcessor();
+            var networkClient = new NetworkClient();
 
-    public void UpdateConfig(string path, string key, string value)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(path);
-        ArgumentException.ThrowIfNullOrWhiteSpace(key);
-        ArgumentNullException.ThrowIfNull(value);
-        if (++attempts <= 2)
-            throw new IOException("Файл конфігурації тимчасово зайнятий.");
+            // Делегат визначає, які винятки вважаються тимчасовими
+            Func<Exception, bool> shouldRetryPolicy = ex =>
+                ex is IOException || ex is HttpRequestException;
 
-        // Імітація оновлення: зовнішні файли не потрібні.
-        UpdatedConfigJson = JsonSerializer.Serialize(new Dictionary<string, string> { [key] = value });
-        Console.WriteLine($"Конфігурацію {path} оновлено: {key} = {value}");
-    }
-}
-
-public class NetworkClient
-{
-    private int attempts;
-    public bool SendConfigUpdate(string url, string configJson)
-    {
-        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri)
-            || (uri.Scheme != "https" && uri.Scheme != "http"))
-            throw new ArgumentException("Потрібна коректна HTTP/HTTPS адреса.", nameof(url));
-        using var document = JsonDocument.Parse(configJson);
-        if (++attempts <= 3)
-            throw new HttpRequestException("Сервер конфігурації тимчасово недоступний.");
-        Console.WriteLine($"Оновлення надіслано до {url}: {configJson}");
-        return true;
-    }
-}
-
-internal class Program
-{
-    static void Main()
-    {
-        Console.OutputEncoding = Encoding.UTF8;
-        Console.WriteLine("=== Лабораторна №17. Варіант 5: Оновлення конфігурації ===");
-        Func<Exception, bool> shouldRetry = ex => ex is IOException or HttpRequestException;
-        var processor = new FileProcessor();
-        var client = new NetworkClient();
-        try
-        {
-            Console.WriteLine("\n1. Оновлення файлу: дві помилки, потім успіх.");
-            // Обгортка перетворює void-операцію на Func<bool>.
-            RetryHelper.ExecuteWithRetry(() =>
-            {
-                processor.UpdateConfig("settings.json", "Theme", "Dark");
-                return true;
-            }, initialDelay: TimeSpan.FromMilliseconds(100), shouldRetry: shouldRetry);
-
-            Console.WriteLine("\n2. Надсилання: три помилки, потім успіх.");
-            bool sent = RetryHelper.ExecuteWithRetry(
-                () => client.SendConfigUpdate("https://example.com/config", processor.UpdatedConfigJson!),
-                initialDelay: TimeSpan.FromMilliseconds(100), shouldRetry: shouldRetry);
-            Console.WriteLine($"Результат надсилання: {sent}");
-
-            Console.WriteLine("\n3. Невалідна адреса: shouldRetry забороняє повтор.");
-            try
-            {
-                RetryHelper.ExecuteWithRetry(() => client.SendConfigUpdate("invalid", "{}"),
-                    shouldRetry: shouldRetry);
-            }
-            catch (ArgumentException ex)
-            {
-                Console.WriteLine($"Оброблено без повтору: {ex.Message}");
-            }
-
-            Console.WriteLine("\n4. Вичерпання ліміту: дозволено лише один повтор.");
-            var unavailableClient = new NetworkClient();
+            Console.WriteLine("=== 1. Сценарій FileProcessor.UpdateConfig (2 невдачі -> успіх) ===\n");
             try
             {
                 RetryHelper.ExecuteWithRetry(
-                    () => unavailableClient.SendConfigUpdate("https://example.com/config", "{}"),
-                    retryCount: 1, initialDelay: TimeSpan.FromMilliseconds(100), shouldRetry: shouldRetry);
+                    operation: () => fileProcessor.UpdateConfig("appsettings.json", "MaxConnections", "100"),
+                    retryCount: 3,
+                    initialDelay: TimeSpan.FromMilliseconds(300),
+                    shouldRetry: shouldRetryPolicy
+                );
             }
-            catch (HttpRequestException ex)
+            catch (Exception ex)
             {
-                Console.WriteLine($"Ліміт вичерпано: {ex.Message}");
+                Console.WriteLine($"[Main] Фінальна помилка: {ex.Message}");
             }
-        }
-        catch (Exception ex) when (ex is IOException or HttpRequestException)
-        {
-            Console.WriteLine($"Операцію не завершено: {ex.Message}");
-        }
-        finally
-        {
-            Console.WriteLine("\nДемонстрацію завершено (finally).");
+
+            Console.WriteLine("\n=== 2. Сценарій NetworkClient.SendConfigUpdate (3 невдачі -> успіх) ===\n");
+            try
+            {
+                bool isSent = RetryHelper.ExecuteWithRetry(
+                    operation: () => networkClient.SendConfigUpdate("https://api.config.local/update", "{\"MaxConnections\":100}"),
+                    retryCount: 4,
+                    initialDelay: TimeSpan.FromMilliseconds(200),
+                    shouldRetry: shouldRetryPolicy
+                );
+                Console.WriteLine($"[Main] Статус відправки: {isSent}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[Main] Фінальна помилка: {ex.Message}");
+            }
+
+            Console.WriteLine("\n=== 3. Демонстрація фільтрації shouldRetry (критична помилка без повторів) ===\n");
+            try
+            {
+                // ArgumentException не входить у shouldRetryPolicy, тому повторних спроб не буде
+                RetryHelper.ExecuteWithRetry(
+                    operation: () => fileProcessor.UpdateConfig("", "Theme", "Dark"),
+                    retryCount: 3,
+                    initialDelay: TimeSpan.FromMilliseconds(300),
+                    shouldRetry: shouldRetryPolicy
+                );
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[Main] Операцію перервано без повторних спроб: {ex.GetType().Name} - {ex.Message}");
+            }
         }
     }
 }
